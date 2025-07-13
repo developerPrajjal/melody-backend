@@ -1,55 +1,49 @@
-const express = require("express");
-const request = require("request");
-const cors = require("cors");
-require("dotenv").config();
+const express = require('express');
+const request = require('request');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
 
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REDIRECT_URI = process.env.REDIRECT_URI;
-const FRONTEND_URI = process.env.FRONTEND_URI;
+const client_id = process.env.CLIENT_ID;
+const client_secret = process.env.CLIENT_SECRET;
+const redirect_uri = "https://melody-backend-7vmo.onrender.com/callback";
+const frontend_url = "https://developerprajjal.github.io/birthday-for-oishi";
 
-app.get("/", (req, res) => {
-  res.send("Melody backend is live!");
+app.get('/login', function (req, res) {
+  const scope = 'playlist-modify-public';
+  const auth_query_parameters = new URLSearchParams({
+    response_type: 'code',
+    client_id: client_id,
+    scope: scope,
+    redirect_uri: redirect_uri,
+  });
+
+  res.redirect('https://accounts.spotify.com/authorize/?' + auth_query_parameters.toString());
 });
 
-app.get("/login", (req, res) => {
-  const scope = "playlist-modify-public";
-  const authURL =
-    "https://accounts.spotify.com/authorize" +
-    "?response_type=code" +
-    "&client_id=" + encodeURIComponent(CLIENT_ID) +
-    "&scope=" + encodeURIComponent(scope) +
-    "&redirect_uri=" + encodeURIComponent(REDIRECT_URI);
-  res.redirect(authURL);
-});
+app.get('/callback', function (req, res) {
+  const code = req.query.code;
 
-app.get("/callback", (req, res) => {
-  const code = req.query.code || null;
   const authOptions = {
-    url: "https://accounts.spotify.com/api/token",
+    url: 'https://accounts.spotify.com/api/token',
     form: {
       code: code,
-      redirect_uri: REDIRECT_URI,
-      grant_type: "authorization_code"
+      redirect_uri: redirect_uri,
+      grant_type: 'authorization_code',
     },
     headers: {
       Authorization:
-        "Basic " +
-        Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64"),
+        'Basic ' +
+        Buffer.from(client_id + ':' + client_secret).toString('base64'),
     },
     json: true,
   };
 
-  request.post(authOptions, (error, response, body) => {
-    if (!error && response.statusCode === 200) {
-      const access_token = body.access_token;
-      res.redirect(`${FRONTEND_URI}?access_token=${access_token}`);
-    } else {
-      res.redirect(`${FRONTEND_URI}?error=invalid_token`);
-    }
+  request.post(authOptions, function (error, response, body) {
+    const access_token = body.access_token;
+    res.redirect(`${frontend_url}?access_token=${access_token}`);
   });
 });
 
