@@ -1,13 +1,9 @@
-// index.js
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const querystring = require('querystring');
-require('dotenv').config();
+const express = require("express");
+const request = require("request");
+const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
-const port = process.env.PORT || 3000;
-
 app.use(cors());
 
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -15,52 +11,49 @@ const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 const FRONTEND_URI = process.env.FRONTEND_URI;
 
-// Login endpoint
-app.get('/login', (req, res) => {
-  const scope = 'playlist-modify-public';
-  const queryParams = querystring.stringify({
-    response_type: 'code',
-    client_id: CLIENT_ID,
-    scope: scope,
-    redirect_uri: REDIRECT_URI,
-  });
-
-  res.redirect(`https://accounts.spotify.com/authorize?${queryParams}`);
+app.get("/", (req, res) => {
+  res.send("Melody backend is live!");
 });
 
-// Callback endpoint
-app.get('/callback', async (req, res) => {
+app.get("/login", (req, res) => {
+  const scope = "playlist-modify-public";
+  const authURL =
+    "https://accounts.spotify.com/authorize" +
+    "?response_type=code" +
+    "&client_id=" + encodeURIComponent(CLIENT_ID) +
+    "&scope=" + encodeURIComponent(scope) +
+    "&redirect_uri=" + encodeURIComponent(REDIRECT_URI);
+  res.redirect(authURL);
+});
+
+app.get("/callback", (req, res) => {
   const code = req.query.code || null;
+  const authOptions = {
+    url: "https://accounts.spotify.com/api/token",
+    form: {
+      code: code,
+      redirect_uri: REDIRECT_URI,
+      grant_type: "authorization_code"
+    },
+    headers: {
+      Authorization:
+        "Basic " +
+        Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64"),
+    },
+    json: true,
+  };
 
-  try {
-    const response = await axios.post('https://accounts.spotify.com/api/token',
-      querystring.stringify({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: REDIRECT_URI,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET
-      }), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-
-    const access_token = response.data.access_token;
-
-    // ✅ Redirect back to frontend with token in URL
-    res.redirect(`${FRONTEND_URI}?access_token=${access_token}`);
-
-  } catch (error) {
-    console.error("Error exchanging token:", error.response?.data || error.message);
-    res.status(500).send("Something went wrong during authentication.");
-  }
+  request.post(authOptions, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      const access_token = body.access_token;
+      res.redirect(`${FRONTEND_URI}?access_token=${access_token}`);
+    } else {
+      res.redirect(`${FRONTEND_URI}?error=invalid_token`);
+    }
+  });
 });
 
-app.get('/', (req, res) => {
-  res.send('🎵 Melody backend is live!');
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
