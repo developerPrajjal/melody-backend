@@ -1,53 +1,37 @@
-const express = require('express');
-const request = require('request');
-const cors = require('cors');
-require('dotenv').config();
-
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+require("dotenv").config();
 const app = express();
+
 app.use(cors());
+app.use(express.json());
+const port = process.env.PORT || 3000;
 
-const client_id = process.env.CLIENT_ID;
-const client_secret = process.env.CLIENT_SECRET;
-const redirect_uri = "https://melody-backend-7vmo.onrender.com/callback";
-const frontend_url = "https://developerprajjal.github.io/birthday-for-oishi";
+app.post("/token", async (req, res) => {
+  const { code, code_verifier, redirect_uri } = req.body;
 
-app.get('/login', function (req, res) {
-  const scope = 'playlist-modify-public';
-  const auth_query_parameters = new URLSearchParams({
-    response_type: 'code',
-    client_id: client_id,
-    scope: scope,
-    redirect_uri: redirect_uri,
-  });
+  try {
+    const params = new URLSearchParams();
+    params.append("client_id", process.env.SPOTIFY_CLIENT_ID);
+    params.append("grant_type", "authorization_code");
+    params.append("code", code);
+    params.append("redirect_uri", redirect_uri);
+    params.append("code_verifier", code_verifier);
 
-  res.redirect('https://accounts.spotify.com/authorize/?' + auth_query_parameters.toString());
+    const response = await axios.post("https://accounts.spotify.com/api/token", params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error exchanging code for token:", error.response?.data || error.message);
+    res.status(500).json({ error: "Token exchange failed" });
+  }
 });
 
-app.get('/callback', function (req, res) {
-  const code = req.query.code;
-
-  const authOptions = {
-    url: 'https://accounts.spotify.com/api/token',
-    form: {
-      code: code,
-      redirect_uri: redirect_uri,
-      grant_type: 'authorization_code',
-    },
-    headers: {
-      Authorization:
-        'Basic ' +
-        Buffer.from(client_id + ':' + client_secret).toString('base64'),
-    },
-    json: true,
-  };
-
-  request.post(authOptions, function (error, response, body) {
-    const access_token = body.access_token;
-    res.redirect(`${frontend_url}?access_token=${access_token}`);
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
