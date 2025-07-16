@@ -1,14 +1,15 @@
 {
   "name": "melody-backend",
   "version": "1.0.0",
-  "main": "server.js",
-  "type": "commonjs",
+  "main": "server.js",   <-- ✅ This is important
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"   <-- ✅ Tell Render to run this
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^2.6.9",
-    "cors": "^2.8.5"
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "node-fetch": "^2.6.7"
   }
 }
