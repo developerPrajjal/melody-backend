@@ -2,65 +2,65 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
-const app = express();
 
-app.use(cors({
-  origin: "https://developerprajjal.github.io", // only allow your GitHub page
-}));
+const app = express();
+app.use(cors());
 app.use(express.json());
 
-const clientId = "9d4c5c3068574999b5ce2dea3bf5db54";
-const clientSecret = "283010b863b844a6b4d847dd2a4ae762"; // ⚠️ Replace this securely in .env in production
-const redirectUri = "https://developerprajjal.github.io/birthday-for-oishi/callback.html";
+// Environment Setup (Add your client credentials)
+const CLIENT_ID = "9d4c5c3068574999b5ce2dea3bf5db54"; // Your Spotify Client ID
+const CLIENT_SECRET = "283010b863b844a6b4d847dd2a4ae762";     // Replace this in production
+const REDIRECT_URI = "https://developerprajjal.github.io/birthday-for-oishi/callback.html";
 
-// ========== 1. Exchange Auth Code for Access Token ==========
+// 🎯 1. Exchange Authorization Code for Access Token
 app.post("/api/exchange-token", async (req, res) => {
-  const { code, codeVerifier } = req.body;
+  const { code, codeVerifier, state } = req.body;
 
   if (!code || !codeVerifier) {
-    return res.status(400).json({ error: "Missing code or codeVerifier" });
+    return res.status(400).json({ error: "Missing code or code verifier" });
   }
 
-  const params = new URLSearchParams();
-  params.append("client_id", clientId);
-  params.append("grant_type", "authorization_code");
-  params.append("code", code);
-  params.append("redirect_uri", redirectUri);
-  params.append("code_verifier", codeVerifier);
+  const body = new URLSearchParams({
+    client_id: CLIENT_ID,
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: codeVerifier
+  });
 
   try {
-    const response = await fetch("https://accounts.spotify.com/api/token", {
+    const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded"
       },
-      body: params
+      body: body.toString()
     });
 
-    const data = await response.json();
+    const tokenData = await tokenRes.json();
 
-    if (data.access_token) {
-      res.json({ access_token: data.access_token });
+    if (tokenData.access_token) {
+      return res.json({ access_token: tokenData.access_token });
     } else {
-      console.error("Token exchange failed:", data);
-      res.status(500).json({ error: "Token exchange failed", details: data });
+      console.error("Token response error:", tokenData);
+      return res.status(500).json({ error: "Failed to exchange token" });
     }
   } catch (err) {
-    console.error("Error during token exchange:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Exchange error:", err);
+    return res.status(500).json({ error: "Error exchanging token" });
   }
 });
 
-// ========== 2. Create Spotify Playlist Based on Genres ==========
+// 🎯 2. Create Playlist
 app.post("/api/create-playlist", async (req, res) => {
   const { access_token, genres } = req.body;
 
-  if (!access_token || !genres || genres.length === 0) {
+  if (!access_token || !genres || !Array.isArray(genres)) {
     return res.status(400).json({ error: "Missing access token or genres" });
   }
 
   try {
-    // Get user ID
+    // Get User ID
     const userRes = await fetch("https://api.spotify.com/v1/me", {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -68,11 +68,11 @@ app.post("/api/create-playlist", async (req, res) => {
     const userId = userData.id;
 
     // Get recommended tracks
-    const trackRes = await fetch(`https://api.spotify.com/v1/recommendations?limit=10&seed_genres=${genres.join(",")}`, {
+    const tracksRes = await fetch(`https://api.spotify.com/v1/recommendations?limit=10&seed_genres=${genres.join(",")}`, {
       headers: { Authorization: `Bearer ${access_token}` }
     });
-    const trackData = await trackRes.json();
-    const uris = trackData.tracks.map(track => track.uri);
+    const tracksData = await tracksRes.json();
+    const uris = tracksData.tracks.map(track => track.uri);
 
     // Create playlist
     const playlistRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
@@ -90,7 +90,7 @@ app.post("/api/create-playlist", async (req, res) => {
     const playlistData = await playlistRes.json();
     const playlistId = playlistData.id;
 
-    // Add tracks
+    // Add tracks to playlist
     await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
       method: "POST",
       headers: {
@@ -100,16 +100,15 @@ app.post("/api/create-playlist", async (req, res) => {
       body: JSON.stringify({ uris })
     });
 
-    res.json({ playlist_url: playlistData.external_urls.spotify });
+    // Send back the playlist URL
+    return res.json({ playlist_url: playlistData.external_urls.spotify });
 
   } catch (err) {
     console.error("Error creating playlist:", err);
-    res.status(500).json({ error: "Failed to create playlist" });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
-// ========== 3. Start Server ==========
+// Server start
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Server is running on port ${PORT}`));
