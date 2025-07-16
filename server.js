@@ -72,9 +72,10 @@ app.post("/api/playlist", async (req, res) => {
     const userData = await userRes.json();
 
     if (!userData.id) {
-      console.error("❌ Failed to get user data:", userData);
-      return res.status(500).json({ error: "Invalid access token" });
-    }
+  console.error("❌ Failed to get user data:", JSON.stringify(userData, null, 2));
+  return res.status(500).json({ error: "Invalid access token", debug: userData });
+}
+
 
     const userId = userData.id;
 
@@ -103,9 +104,13 @@ app.post("/api/playlist", async (req, res) => {
     const playlistData = await playlistRes.json();
 
     if (!playlistData.id) {
-      console.error("❌ Failed to create playlist:", playlistData);
-      return res.status(500).json({ error: "Failed to create playlist" });
-    }
+  console.error("❌ Failed to create playlist:", JSON.stringify(playlistData, null, 2));
+  return res.status(500).json({ 
+    error: "Failed to create playlist", 
+    debug: playlistData 
+  });
+}
+
 
     await fetch(`https://api.spotify.com/v1/playlists/${playlistData.id}/tracks`, {
       method: "POST",
