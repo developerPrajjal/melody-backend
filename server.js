@@ -21,6 +21,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Spotify Config (can be set via .env or fallback defaults)
 const CLIENT_ID = process.env.CLIENT_ID || "9d4c5c3068574999b5ce2dea3bf5db54";
 const CLIENT_SECRET = process.env.CLIENT_SECRET || "283010b863b844a6b4d847dd2a4ae762";
 const REDIRECT_URI = "https://developerprajjal.github.io/birthday-for-oishi/callback.html";
@@ -30,7 +31,7 @@ app.get("/", (req, res) => {
   res.send("🎶 Melody backend is running!");
 });
 
-// ✅ ✅ ✅ FIXED THIS ENDPOINT ✅ ✅ ✅
+// 🎧 Exchange Spotify Authorization Code for Access Token
 app.post("/api/exchange-token", async (req, res) => {
   const { code, codeVerifier, redirectUri } = req.body;
 
@@ -53,11 +54,12 @@ app.post("/api/exchange-token", async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
-    console.error("Error exchanging token:", error.response?.data || error.message);
+    console.error("❌ Error exchanging token:", error.response?.data || error.message);
     res.status(400).json({ error: "Token exchange failed" });
   }
 });
 
+// 💖 Generate Playlist
 app.post("/api/playlist", async (req, res) => {
   const { access_token, genres } = req.body;
 
@@ -66,29 +68,39 @@ app.post("/api/playlist", async (req, res) => {
   }
 
   try {
+    // 🔍 Get current user's profile
     const userRes = await fetch("https://api.spotify.com/v1/me", {
       headers: { Authorization: `Bearer ${access_token}` }
     });
     const userData = await userRes.json();
 
     if (!userData.id) {
-  console.error("❌ Failed to get user data:", JSON.stringify(userData, null, 2));
-  return res.status(500).json({ error: "Invalid access token", debug: userData });
-}
-
+      console.error("❌ Failed to get user data:", JSON.stringify(userData, null, 2));
+      return res.status(500).json({ error: "Invalid access token", debug: userData });
+    }
 
     const userId = userData.id;
 
+    // 🎵 Get recommended tracks
     const trackRes = await fetch(`https://api.spotify.com/v1/recommendations?limit=10&seed_genres=${genres.join(",")}`, {
       headers: { Authorization: `Bearer ${access_token}` }
     });
-    const trackData = await trackRes.json();
+
+    const rawText = await trackRes.text();
+    let trackData;
+    try {
+      trackData = JSON.parse(rawText);
+    } catch (parseErr) {
+      console.error("❌ Invalid JSON from Spotify Recommendations:", rawText);
+      return res.status(500).json({ error: "Invalid JSON from Spotify", debug: rawText });
+    }
 
     const uris = trackData.tracks?.map(track => track.uri) || [];
     if (uris.length === 0) {
       return res.status(500).json({ error: "No tracks found for selected genres" });
     }
 
+    // 📝 Create a new playlist
     const playlistRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
       method: "POST",
       headers: {
@@ -101,17 +113,18 @@ app.post("/api/playlist", async (req, res) => {
         public: true
       })
     });
+
     const playlistData = await playlistRes.json();
 
     if (!playlistData.id) {
-  console.error("❌ Failed to create playlist:", JSON.stringify(playlistData, null, 2));
-  return res.status(500).json({ 
-    error: "Failed to create playlist", 
-    debug: playlistData 
-  });
-}
+      console.error("❌ Failed to create playlist:", JSON.stringify(playlistData, null, 2));
+      return res.status(500).json({
+        error: "Failed to create playlist",
+        debug: playlistData
+      });
+    }
 
-
+    // ➕ Add tracks to the playlist
     await fetch(`https://api.spotify.com/v1/playlists/${playlistData.id}/tracks`, {
       method: "POST",
       headers: {
@@ -129,6 +142,7 @@ app.post("/api/playlist", async (req, res) => {
   }
 });
 
+// 🟢 Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
