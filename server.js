@@ -13,7 +13,6 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 
-// 🪵 Debug Logging
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.path}`);
   if (req.body && Object.keys(req.body).length > 0) {
@@ -22,7 +21,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// 🔐 Spotify Credentials
 const CLIENT_ID = process.env.CLIENT_ID || "9d4c5c3068574999b5ce2dea3bf5db54";
 const CLIENT_SECRET = process.env.CLIENT_SECRET || "283010b863b844a6b4d847dd2a4ae762";
 const REDIRECT_URI = "https://developerprajjal.github.io/birthday-for-oishi/callback.html";
@@ -32,8 +30,8 @@ app.get("/", (req, res) => {
   res.send("🎶 Melody backend is running!");
 });
 
-// 🎯 Token Exchange (optional – not used by front-end currently)
-app.post("/exchange-token", async (req, res) => {
+// ✅ ✅ ✅ FIXED THIS ENDPOINT ✅ ✅ ✅
+app.post("/api/exchange-token", async (req, res) => {
   const { code, codeVerifier, redirectUri } = req.body;
 
   try {
@@ -60,7 +58,6 @@ app.post("/exchange-token", async (req, res) => {
   }
 });
 
-// 🎯 Main Endpoint – Create Playlist
 app.post("/api/playlist", async (req, res) => {
   const { access_token, genres } = req.body;
 
@@ -69,7 +66,6 @@ app.post("/api/playlist", async (req, res) => {
   }
 
   try {
-    // Step 1: Get user info
     const userRes = await fetch("https://api.spotify.com/v1/me", {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -82,7 +78,6 @@ app.post("/api/playlist", async (req, res) => {
 
     const userId = userData.id;
 
-    // Step 2: Get recommended tracks
     const trackRes = await fetch(`https://api.spotify.com/v1/recommendations?limit=10&seed_genres=${genres.join(",")}`, {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -93,7 +88,6 @@ app.post("/api/playlist", async (req, res) => {
       return res.status(500).json({ error: "No tracks found for selected genres" });
     }
 
-    // Step 3: Create a playlist
     const playlistRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
       method: "POST",
       headers: {
@@ -113,7 +107,6 @@ app.post("/api/playlist", async (req, res) => {
       return res.status(500).json({ error: "Failed to create playlist" });
     }
 
-    // Step 4: Add tracks
     await fetch(`https://api.spotify.com/v1/playlists/${playlistData.id}/tracks`, {
       method: "POST",
       headers: {
@@ -123,7 +116,6 @@ app.post("/api/playlist", async (req, res) => {
       body: JSON.stringify({ uris })
     });
 
-    // ✅ Success
     return res.json({ playlist_url: playlistData.external_urls.spotify });
 
   } catch (err) {
@@ -132,7 +124,6 @@ app.post("/api/playlist", async (req, res) => {
   }
 });
 
-// 🚀 Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
